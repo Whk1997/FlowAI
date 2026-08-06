@@ -32,8 +32,8 @@ async function bootstrap() {
   });
 
   const port = Number(process.env.PORT ?? 3001);
-  await app.listen(port);
-  logger.log(`FlowAI API listening on http://localhost:${port}/api`);
+  await app.listen(port, '0.0.0.0');
+  logger.log(`FlowAI API listening on http://0.0.0.0:${port}/api`);
   if (!corsOrigin?.length) {
     logger.warn('CORS_ORIGIN is unset; reflecting request origin (dev only)');
   }

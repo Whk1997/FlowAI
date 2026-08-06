@@ -21,9 +21,8 @@ FlowAI/
            │
      ┌─────┼─────┐
      ▼     ▼     ▼
-  Prisma  本地/Supabase  AI 中转
-  (SQLite/ Storage     (OpenAI 兼容)
-   Postgres)
+  Prisma  Supabase       AI 中转
+  (Postgres) Storage   (OpenAI 兼容)
 ```
 
 硬约束：浏览器只请求 NestJS；业务数据按 `userId` 隔离；AI 密钥仅后端。
@@ -94,7 +93,8 @@ npm run dev
 
 | 变量 | 说明 |
 |------|------|
-| `DATABASE_URL` | 本地默认 `file:./dev.db`；上线改为 Supabase Postgres |
+| `DATABASE_URL` | Supabase Postgres（建议 pooler `6543` + `pgbouncer=true`） |
+| `DIRECT_URL` | 迁移用直连 / Session pooler（`5432`） |
 | `JWT_ACCESS_SECRET` | Access Token 密钥 |
 | `JWT_REFRESH_SECRET` | 预留（当前 refresh 为随机串 + DB 哈希） |
 | `PORT` | 默认 `3001` |
@@ -121,6 +121,43 @@ npm run dev
 - 没有现成组件用 Tailwind
 - 禁止对 shadcn 已有组件做无意义再封装
 
-## 下一步（Day 7）
+## 生产部署（Day 7）
 
-生产部署（Vercel 前端 + Zeabur 后端）、环境变量配齐、走通线上验收路径。
+### 前端（已部署）
+
+- 平台：Vercel，Root Directory = `flowai-frontend`
+- 环境变量：`NEXT_PUBLIC_API_URL=https://你的后端域名/api`（**后端上线后再改**，改完需 Redeploy）
+
+### 后端：Zeabur（推荐）
+
+仓库含 `flowai-backend/Dockerfile`：镜像启动时会先 `prisma migrate deploy` 再起 Nest。
+
+1. 打开 [Zeabur](https://zeabur.com) → New Project → Deploy from GitHub → 选 `Whk1997/FlowAI`
+2. 添加服务后设置：
+   - **Root Directory** = `flowai-backend`（必填，否则会扫到 monorepo 根目录）
+   - 有 `Dockerfile` 时 Zeabur 会自动用 Docker 构建
+3. Variables 填入（生产）：
+
+| 变量 | 值 |
+|------|-----|
+| `NODE_ENV` | `production` |
+| `CORS_ORIGIN` | `https://flow-ai-dusky-five.vercel.app` |
+| `DATABASE_URL` | Supabase Transaction pooler（6543 + `pgbouncer=true`） |
+| `DIRECT_URL` | Supabase Session / Direct（5432） |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | 强随机串 |
+| `JWT_ACCESS_EXPIRES` / `JWT_REFRESH_EXPIRES` | `15m` / `7d` |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | 建议必配（附件） |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | AI 总结 |
+| `AI_DAILY_LIMIT` | 如 `30` |
+
+**不要**设置 `AI_HTTP_PROXY`。`PORT` 一般由平台注入（本服务监听 `0.0.0.0`）。
+
+4. Deploy 成功后打开公网域名 + `/api/health`，应返回 JSON。
+5. 回到 Vercel，设置 `NEXT_PUBLIC_API_URL=https://<zeabur域名>/api` 并 Redeploy。
+6. 可选：在 Zeabur Shell 执行 `npm run prisma:seed` 写入演示账号。
+
+演示账号：`demo@flowai.dev` / `demo123456`
+
+### 备选平台
+
+Railway / Render 同样：Root = `flowai-backend`，Start = `npm run start:prod:migrate`，环境变量同上。

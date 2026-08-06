@@ -3,11 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// 本地 SQLite；上线前改为 postgresql + Supabase DATABASE_URL。
+// Supabase PostgreSQL：运行时可用 pooler(6543)，迁移走 DIRECT_URL(5432)
 
 model User {
   id            Int            @id @default(autoincrement())
