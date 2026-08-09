@@ -1,0 +1,6 @@
+# 无域名：用公网 IP 的 sslip.io（浏览器可走 HTTPS，避免 Vercel 混合内容拦截）
+# 当前机器：8.219.243.236
+8.219.243.236.sslip.io {
+	encode gzip
+	reverse_proxy api:3001
+}

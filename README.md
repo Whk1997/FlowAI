@@ -126,38 +126,44 @@ npm run dev
 ### 前端（已部署）
 
 - 平台：Vercel，Root Directory = `flowai-frontend`
-- 环境变量：`NEXT_PUBLIC_API_URL=https://你的后端域名/api`（**后端上线后再改**，改完需 Redeploy）
+- 环境变量：`NEXT_PUBLIC_API_URL=https://<后端公网HTTPS>/api`（改完需 Redeploy）
 
 ### 后端：Zeabur（推荐）
 
-仓库含 `flowai-backend/Dockerfile`：镜像启动时会先 `prisma migrate deploy` 再起 Nest。
+仓库已有 `flowai-backend/Dockerfile`（启动命令含 `prisma migrate deploy`）。无需本机构建镜像。
 
-1. 打开 [Zeabur](https://zeabur.com) → New Project → Deploy from GitHub → 选 `Whk1997/FlowAI`
-2. 添加服务后设置：
-   - **Root Directory** = `flowai-backend`（必填，否则会扫到 monorepo 根目录）
-   - 有 `Dockerfile` 时 Zeabur 会自动用 Docker 构建
-3. Variables 填入（生产）：
+#### 1. 部署服务
+
+1. [Zeabur](https://zeabur.com) 登录 → New Project → Deploy New Service → **Git**（连本仓库）
+2. Root Directory 选 **`flowai-backend`**
+3. 构建方式选 **Dockerfile**（自动识别即可）
+4. 部署完成后记下公网域名，形如 `https://xxx.zeabur.app`
+
+#### 2. 环境变量（Variables）
+
+在服务 Variables 里按表填写；**不要**设 `AI_HTTP_PROXY`。`PORT` 一般由 Zeabur 注入，可不手写。
 
 | 变量 | 值 |
 |------|-----|
 | `NODE_ENV` | `production` |
 | `CORS_ORIGIN` | `https://flow-ai-dusky-five.vercel.app` |
-| `DATABASE_URL` | Supabase Transaction pooler（6543 + `pgbouncer=true`） |
-| `DIRECT_URL` | Supabase Session / Direct（5432） |
+| `DATABASE_URL` | Supabase pooler `6543` + `pgbouncer=true` |
+| `DIRECT_URL` | Supabase `5432` |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | 强随机串 |
 | `JWT_ACCESS_EXPIRES` / `JWT_REFRESH_EXPIRES` | `15m` / `7d` |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | 建议必配（附件） |
-| `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | AI 总结 |
-| `AI_DAILY_LIMIT` | 如 `30` |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | 建议必配 |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | AI |
+| `AI_DAILY_LIMIT` | `30` |
 
-**不要**设置 `AI_HTTP_PROXY`。`PORT` 一般由平台注入（本服务监听 `0.0.0.0`）。
+改变量后若未自动重启，在控制台 Restart 一次。
 
-4. Deploy 成功后打开公网域名 + `/api/health`，应返回 JSON。
-5. 回到 Vercel，设置 `NEXT_PUBLIC_API_URL=https://<zeabur域名>/api` 并 Redeploy。
-6. 可选：在 Zeabur Shell 执行 `npm run prisma:seed` 写入演示账号。
+#### 3. 验收
 
-演示账号：`demo@flowai.dev` / `demo123456`
+- 健康检查：`https://<你的-zeabur-域名>/api/health`
+- Vercel 环境变量：`NEXT_PUBLIC_API_URL=https://<你的-zeabur-域名>/api` → Redeploy
+- 可选 seed（Zeabur 终端 / one-off）：`npm run prisma:seed`  
+  演示账号：`demo@flowai.dev` / `demo123456`
 
-### 备选平台
+### 备选：阿里云轻量 + Docker
 
-Railway / Render 同样：Root = `flowai-backend`，Start = `npm run start:prod:migrate`，环境变量同上。
+0.5G 机器勿在服务器 `npm run build`；本机 OrbStack/Docker 构建 `linux/amd64` 镜像后 `scp` + `docker load`。配置见仓库 `flowai-backend/docker-compose.yml`、`Caddyfile`；无域名可用 `https://<公网IP>.sslip.io`。详细步骤可按需再展开。

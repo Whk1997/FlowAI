@@ -1,0 +1,32 @@
+services:
+  api:
+    image: flowai-api:latest
+    container_name: flowai-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+    expose:
+      - "3001"
+    # 0.5G 机器：限制容器内存，避免把系统拖死
+    mem_limit: 384m
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: flowai-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:
+  caddy_config:
