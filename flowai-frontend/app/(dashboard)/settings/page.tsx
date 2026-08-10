@@ -10,6 +10,7 @@ import {
   updateProfile,
   type User,
 } from '@/lib/auth';
+import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,21 +91,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">设置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          编辑个人资料或修改登录密码
-        </p>
-      </div>
+    <div className="mx-auto flex max-w-xl flex-col gap-8">
+      <PageHeader
+        title="设置"
+        description="维护个人资料与登录密码。"
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>个人资料</CardTitle>
+      <Card className="gap-0 border-border/80 py-0 shadow-none">
+        <CardHeader className="space-y-1 px-5 py-4">
+          <CardTitle className="font-[family-name:var(--font-display)]">
+            个人资料
+          </CardTitle>
           <CardDescription>邮箱不可改；可更新显示名称</CardDescription>
         </CardHeader>
         <form onSubmit={onSaveProfile}>
-          <CardContent className="flex flex-col gap-4">
+          <CardContent className="flex flex-col gap-4 px-5 pb-5 pt-1">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">邮箱</Label>
               <Input id="email" value={user.email} disabled />
@@ -126,7 +127,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">{profileMsg}</p>
             ) : null}
           </CardContent>
-          <CardFooter>
+          <CardFooter className="border-t border-border/50 px-5 py-4">
             <Button type="submit" disabled={profileLoading}>
               {profileLoading ? '保存中…' : '保存资料'}
             </Button>
@@ -134,13 +135,15 @@ export default function SettingsPage() {
         </form>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>修改密码</CardTitle>
+      <Card className="gap-0 border-border/80 py-0 shadow-none">
+        <CardHeader className="space-y-1 px-5 py-4">
+          <CardTitle className="font-[family-name:var(--font-display)]">
+            修改密码
+          </CardTitle>
           <CardDescription>修改成功后需重新登录</CardDescription>
         </CardHeader>
         <form onSubmit={onChangePassword}>
-          <CardContent className="flex flex-col gap-4">
+          <CardContent className="flex flex-col gap-4 px-5 pb-5 pt-1">
             <div className="flex flex-col gap-2">
               <Label htmlFor="currentPassword">当前密码</Label>
               <Input
@@ -184,7 +187,7 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">{passwordMsg}</p>
             ) : null}
           </CardContent>
-          <CardFooter>
+          <CardFooter className="border-t border-border/50 px-5 py-4">
             <Button type="submit" disabled={passwordLoading}>
               {passwordLoading ? '提交中…' : '更新密码'}
             </Button>

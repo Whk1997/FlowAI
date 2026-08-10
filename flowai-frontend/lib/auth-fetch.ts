@@ -1,5 +1,9 @@
 import { apiFetch } from './api';
-import { getAccessToken, refreshSession, clearTokens } from './auth';
+import {
+  getAccessToken,
+  refreshSession,
+  redirectToLogin,
+} from './auth';
 
 export async function authFetch<T>(
   path: string,
@@ -13,7 +17,7 @@ export async function authFetch<T>(
   }
 
   if (!accessToken) {
-    clearTokens();
+    redirectToLogin();
     throw new Error('Not authenticated');
   }
 
@@ -31,7 +35,7 @@ export async function authFetch<T>(
 
     const refreshed = await refreshSession();
     if (!refreshed?.accessToken) {
-      clearTokens();
+      redirectToLogin();
       throw error;
     }
 

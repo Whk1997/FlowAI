@@ -1,6 +1,6 @@
 import { API_BASE_URL, ApiError } from './api';
 import { authFetch } from './auth-fetch';
-import { clearTokens, getAccessToken, refreshSession } from './auth';
+import { getAccessToken, redirectToLogin, refreshSession } from './auth';
 import type { Task } from './tasks';
 
 export type NoteSummaryResult = {
@@ -68,7 +68,7 @@ async function getStreamAccessToken() {
     accessToken = refreshed?.accessToken ?? null;
   }
   if (!accessToken) {
-    clearTokens();
+    redirectToLogin();
     throw new Error('Not authenticated');
   }
   return accessToken;
@@ -154,7 +154,7 @@ export async function summarizeNoteStream(
     }
     const refreshed = await refreshSession();
     if (!refreshed?.accessToken) {
-      clearTokens();
+      redirectToLogin();
       throw error;
     }
     await run(refreshed.accessToken);

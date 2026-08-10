@@ -12,6 +12,8 @@ import {
   updateNote,
   type Note,
 } from '@/lib/notes';
+import { PageHeader } from '@/components/layout/page-header';
+import { NotesListSkeleton } from '@/components/layout/list-skeletons';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -192,43 +194,48 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">笔记</h1>
-          <p className="text-sm text-muted-foreground">
-            收藏 / 归档可在列表直接操作；支持标题与正文搜索
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={favoritesOnly ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFavoritesOnly((v) => !v)}
-          >
-            <Star className="size-3.5" />
-            {favoritesOnly ? '全部笔记' : '只看收藏'}
-          </Button>
-          <Button
-            variant={showArchived ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowArchived((v) => !v)}
-          >
-            <Archive className="size-3.5" />
-            {showArchived ? '查看未归档' : '查看归档'}
-          </Button>
-          <Button size="sm" onClick={() => void onCreate()} disabled={creating}>
-            {creating ? '创建中…' : '新建笔记'}
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title="笔记"
+        description="收藏与归档可在列表操作；搜索支持标题与正文，命中会高亮。"
+        actions={
+          <>
+            <Button
+              variant={favoritesOnly ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFavoritesOnly((v) => !v)}
+            >
+              <Star className="size-3.5" />
+              {favoritesOnly ? '全部笔记' : '只看收藏'}
+            </Button>
+            <Button
+              variant={showArchived ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowArchived((v) => !v)}
+            >
+              <Archive className="size-3.5" />
+              {showArchived ? '查看未归档' : '查看归档'}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => void onCreate()}
+              disabled={creating}
+            >
+              {creating ? '创建中…' : '新建笔记'}
+            </Button>
+          </>
+        }
+      />
 
-      <form onSubmit={onSearch} className="flex flex-wrap gap-2">
+      <form
+        onSubmit={onSearch}
+        className="flex flex-wrap gap-2 rounded-2xl border border-border/70 bg-card/60 p-3"
+      >
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜索标题或正文…"
-          className="max-w-md"
+          className="max-w-md bg-background"
         />
         <Button type="submit" variant="outline" size="sm">
           搜索
@@ -257,7 +264,7 @@ export default function NotesPage() {
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">加载中…</p>
+        <NotesListSkeleton />
       ) : error ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : notes.length === 0 ? (
@@ -276,13 +283,17 @@ export default function NotesPage() {
           </CardHeader>
         </Card>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid gap-2.5">
           {notes.map((note) => (
-            <Card key={note.id} size="sm">
+            <Card
+              key={note.id}
+              size="sm"
+              className="border-border/80 shadow-none transition-colors hover:border-primary/25 hover:bg-accent/30"
+            >
               <CardContent className="flex items-start justify-between gap-3 py-4">
                 <Link href={`/notes/${note.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 className="truncate text-sm font-medium">
+                    <h2 className="truncate font-[family-name:var(--font-display)] text-base font-semibold tracking-tight">
                       <HighlightText text={note.title} query={search} />
                     </h2>
                     {note.isFavorite ? (

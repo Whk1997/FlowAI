@@ -1,6 +1,10 @@
 import { authFetch } from './auth-fetch';
 import { API_BASE_URL, ApiError } from './api';
-import { getAccessToken, refreshSession, clearTokens } from './auth';
+import {
+  getAccessToken,
+  refreshSession,
+  redirectToLogin,
+} from './auth';
 
 export type NoteFile = {
   id: number;
@@ -34,13 +38,29 @@ export async function fetchFileBlob(fileId: number) {
     accessToken = refreshed?.accessToken ?? null;
   }
   if (!accessToken) {
-    clearTokens();
+    redirectToLogin();
     throw new Error('Not authenticated');
   }
 
   const res = await fetch(`${API_BASE_URL}/files/${fileId}/download`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+
+  if (res.status === 401) {
+    const refreshed = await refreshSession();
+    if (!refreshed?.accessToken) {
+      redirectToLogin();
+      throw new ApiError(401, 'Not authenticated');
+    }
+    const retry = await fetch(`${API_BASE_URL}/files/${fileId}/download`, {
+      headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+    });
+    if (!retry.ok) {
+      if (retry.status === 401) redirectToLogin();
+      throw new ApiError(retry.status, 'Download failed');
+    }
+    return retry.blob();
+  }
 
   if (!res.ok) {
     throw new ApiError(res.status, 'Download failed');

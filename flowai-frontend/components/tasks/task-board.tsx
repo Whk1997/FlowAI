@@ -69,18 +69,18 @@ export function TaskBoard({ tasks, onChange, onOpenTask }: TaskBoardProps) {
         return (
           <section
             key={column.status}
-            className="flex min-h-72 flex-col rounded-2xl border bg-gradient-to-b from-background to-muted/30 p-3"
+            className="flex min-h-72 flex-col rounded-2xl border border-border/80 bg-[linear-gradient(180deg,oklch(0.99_0.005_95),oklch(0.96_0.015_200/_0.65))] p-3 shadow-[0_1px_0_oklch(1_0_0/_0.5)_inset]"
           >
             <div className="mb-3 flex items-end justify-between px-1">
               <div>
-                <h2 className="text-sm font-semibold tracking-tight">
+                <h2 className="font-[family-name:var(--font-display)] text-sm font-bold tracking-tight text-primary">
                   {column.title}
                 </h2>
                 <p className="text-[11px] text-muted-foreground">
                   {column.hint}
                 </p>
               </div>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium tabular-nums text-primary">
                 {items.length}
               </span>
             </div>
@@ -93,7 +93,7 @@ export function TaskBoard({ tasks, onChange, onOpenTask }: TaskBoardProps) {
                 items.map((task) => (
                   <article
                     key={task.id}
-                    className="group rounded-xl border bg-card p-3 shadow-sm transition hover:border-foreground/15 hover:shadow-md"
+                    className="group rounded-xl border border-border/70 bg-card/95 p-3 transition hover:border-primary/30 hover:bg-card"
                   >
                     <button
                       type="button"

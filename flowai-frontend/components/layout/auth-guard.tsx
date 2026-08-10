@@ -17,14 +17,19 @@ export function AuthGuard({ children }: AuthGuardProps) {
     let cancelled = false;
 
     async function run() {
-      const me = await fetchMe();
-      if (cancelled) return;
-      if (!me) {
+      try {
+        const me = await fetchMe();
+        if (cancelled) return;
+        if (!me) {
+          router.replace('/login');
+          return;
+        }
+        setUser(me);
+        setChecking(false);
+      } catch {
+        if (cancelled) return;
         router.replace('/login');
-        return;
       }
-      setUser(me);
-      setChecking(false);
     }
 
     void run();

@@ -65,14 +65,18 @@ export function TaskCreateForm({ tags, onCreated }: TaskCreateFormProps) {
   }
 
   return (
-    <Card className="border-dashed">
-      <CardHeader>
-        <CardTitle>新建任务</CardTitle>
+    <Card className="gap-0 border-dashed border-primary/25 bg-card/70 py-0 shadow-none">
+      <CardHeader className="border-b border-border/50 px-5 py-4">
+        <CardTitle className="font-[family-name:var(--font-display)] text-lg">
+          新建任务
+        </CardTitle>
       </CardHeader>
       <form onSubmit={onSubmit}>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 px-5 py-5 md:grid-cols-2">
           <div className="flex flex-col gap-2 md:col-span-2">
-            <Label htmlFor="title">标题</Label>
+            <Label htmlFor="title">
+              标题 <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="title"
               required
@@ -82,19 +86,22 @@ export function TaskCreateForm({ tags, onCreated }: TaskCreateFormProps) {
             />
           </div>
           <div className="flex flex-col gap-2 md:col-span-2">
-            <Label htmlFor="description">描述</Label>
+            <Label htmlFor="description">描述（可选）</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="可选"
+              placeholder="补充上下文，可留空"
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="priority">优先级</Label>
+            <Label htmlFor="priority">
+              优先级 <span className="text-destructive">*</span>
+            </Label>
             <select
               id="priority"
+              required
               value={priority}
               onChange={(e) => setPriority(e.target.value as Priority)}
               className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -112,11 +119,14 @@ export function TaskCreateForm({ tags, onCreated }: TaskCreateFormProps) {
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
             />
+            <p className="text-[11px] text-muted-foreground">
+              可选；没有明确截止日可留空
+            </p>
           </div>
           {tags.length > 0 ? (
-            <div className="flex flex-col gap-2 md:col-span-2">
+            <div className="mt-2 flex flex-col gap-3 border-t border-border/60 pt-5 md:col-span-2">
               <Label>标签（可选）</Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2.5">
                 {tags.map((tag) => {
                   const active = tagIds.includes(tag.id);
                   return (
@@ -138,7 +148,7 @@ export function TaskCreateForm({ tags, onCreated }: TaskCreateFormProps) {
             <p className="text-sm text-destructive md:col-span-2">{error}</p>
           ) : null}
         </CardContent>
-        <CardFooter>
+        <CardFooter className="border-t border-border/50 px-5 py-4">
           <Button type="submit" disabled={loading || !title.trim()}>
             {loading ? '创建中…' : '创建任务'}
           </Button>

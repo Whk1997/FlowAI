@@ -36,6 +36,29 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+const AUTH_PUBLIC_PATHS = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+];
+
+let redirectingToLogin = false;
+
+/** Access / Refresh 均失效时：清 token 并跳转登录页 */
+export function redirectToLogin() {
+  clearTokens();
+  if (typeof window === 'undefined') return;
+  const path = window.location.pathname;
+  if (AUTH_PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
+    return;
+  }
+  if (redirectingToLogin) return;
+  redirectingToLogin = true;
+  // 用整页跳转，避免各页面只 toast 错误却停留在受保护路由
+  window.location.replace('/login');
+}
+
 export function isAuthenticated() {
   return Boolean(getAccessToken());
 }
@@ -109,8 +132,15 @@ export async function fetchMe() {
     return await apiFetch<User>('/auth/me', { accessToken });
   } catch {
     const refreshed = await refreshSession();
-    if (!refreshed) return null;
-    return apiFetch<User>('/auth/me', { accessToken: refreshed.accessToken });
+    if (!refreshed?.accessToken) return null;
+    try {
+      return await apiFetch<User>('/auth/me', {
+        accessToken: refreshed.accessToken,
+      });
+    } catch {
+      clearTokens();
+      return null;
+    }
   }
 }
 
@@ -121,14 +151,24 @@ async function withAccessToken<T>(fn: (accessToken: string) => Promise<T>) {
     accessToken = refreshed?.accessToken ?? null;
   }
   if (!accessToken) {
+    redirectToLogin();
     throw new Error('Not authenticated');
   }
 
   try {
     return await fn(accessToken);
   } catch (err) {
+    const status =
+      err && typeof err === 'object' && 'status' in err
+        ? Number((err as { status: number }).status)
+        : 0;
+    if (status !== 401) throw err;
+
     const refreshed = await refreshSession();
-    if (!refreshed) throw err;
+    if (!refreshed?.accessToken) {
+      redirectToLogin();
+      throw err;
+    }
     return fn(refreshed.accessToken);
   }
 }

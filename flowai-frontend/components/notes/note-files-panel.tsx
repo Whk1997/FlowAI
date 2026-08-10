@@ -75,15 +75,17 @@ export function NoteFilesPanel({
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-        <div>
-          <CardTitle>附件</CardTitle>
+    <Card className="gap-0 border-border/80 py-0 shadow-none">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60 bg-muted/25 px-5 py-4">
+        <div className="min-w-0 space-y-1">
+          <CardTitle className="font-[family-name:var(--font-display)]">
+            附件
+          </CardTitle>
           <CardDescription>
             支持图片 / PDF / 文档，单文件 ≤ 10MB
           </CardDescription>
         </div>
-        <div>
+        <div className="shrink-0 pt-0.5">
           <input
             ref={inputRef}
             type="file"
@@ -100,7 +102,7 @@ export function NoteFilesPanel({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-2 px-5 py-4">
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {files.length === 0 ? (
           <p className="text-sm text-muted-foreground">暂无附件</p>
@@ -108,7 +110,7 @@ export function NoteFilesPanel({
           files.map((file) => (
             <div
               key={file.id}
-              className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card/80 px-3 py-2.5"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{file.name}</p>

@@ -64,12 +64,37 @@ export class TasksService {
         ...(query.status ? { status: query.status } : {}),
         ...(query.priority ? { priority: query.priority } : {}),
         ...(query.tagId ? { tags: { some: { tagId: query.tagId } } } : {}),
+        ...this.dueDateWhere(query.due),
       },
       include: taskInclude,
       orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
     });
 
     return tasks.map((task) => this.toTaskResponse(task));
+  }
+
+  private dueDateWhere(due?: ListTasksQueryDto['due']) {
+    if (!due) return {};
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const startOfNextWeek = new Date(startOfToday);
+    startOfNextWeek.setDate(startOfNextWeek.getDate() + 7);
+
+    switch (due) {
+      case 'overdue':
+        return { dueDate: { not: null, lt: startOfToday } };
+      case 'today':
+        return { dueDate: { gte: startOfToday, lt: startOfTomorrow } };
+      case 'week':
+        return { dueDate: { gte: startOfToday, lt: startOfNextWeek } };
+      case 'none':
+        return { dueDate: null };
+      default:
+        return {};
+    }
   }
 
   async findOne(userId: number, id: number) {

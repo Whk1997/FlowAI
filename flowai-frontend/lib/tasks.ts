@@ -53,14 +53,18 @@ export type UpdateTaskInput = {
   tagIds?: number[];
 };
 
+export type DueFilter = 'overdue' | 'today' | 'week' | 'none';
+
 export function listTasks(params?: {
   status?: TaskStatus;
   priority?: Priority;
+  due?: DueFilter;
   tagId?: number;
 }) {
   const query = new URLSearchParams();
   if (params?.status) query.set('status', params.status);
   if (params?.priority) query.set('priority', params.priority);
+  if (params?.due) query.set('due', params.due);
   if (params?.tagId) query.set('tagId', String(params.tagId));
   const qs = query.toString();
   return authFetch<Task[]>(`/tasks${qs ? `?${qs}` : ''}`);

@@ -138,11 +138,11 @@ export default function NoteDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/70 px-3 py-2.5">
         <Link
           href="/notes"
-          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
         >
           ← 返回列表
         </Link>
@@ -151,7 +151,7 @@ export default function NoteDetailPage() {
             <span className="text-xs text-muted-foreground">{message}</span>
           ) : null}
           {dirty ? (
-            <span className="text-xs text-muted-foreground">未保存</span>
+            <span className="text-xs text-amber-700/80">未保存</span>
           ) : null}
           <Button size="sm" variant="outline" onClick={() => void toggleFavorite()}>
             <Star
@@ -182,7 +182,7 @@ export default function NoteDetailPage() {
           setDirty(true);
           setMessage('');
         }}
-        className="h-10 text-base font-medium"
+        className="h-12 border-border/80 bg-card font-[family-name:var(--font-display)] text-lg font-semibold"
         placeholder="笔记标题"
       />
 

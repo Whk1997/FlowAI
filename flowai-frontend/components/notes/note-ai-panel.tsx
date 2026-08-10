@@ -57,10 +57,12 @@ export function NoteAiPanel({ noteId, hasUnsavedChanges }: NoteAiPanelProps) {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
-        <div>
-          <CardTitle>AI 总结</CardTitle>
+    <Card className="gap-0 border-border/80 py-0 shadow-none">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60 bg-muted/25 px-5 py-4">
+        <div className="min-w-0 space-y-1">
+          <CardTitle className="font-[family-name:var(--font-display)]">
+            AI 总结
+          </CardTitle>
           <CardDescription>
             基于已保存正文流式生成概述与要点
             {hasUnsavedChanges ? '（当前有未保存修改，请先保存）' : ''}
@@ -68,13 +70,14 @@ export function NoteAiPanel({ noteId, hasUnsavedChanges }: NoteAiPanelProps) {
         </div>
         <Button
           size="sm"
+          className="shrink-0"
           onClick={() => void onSummarize()}
           disabled={loading || hasUnsavedChanges}
         >
           {loading ? '生成中…' : '生成总结'}
         </Button>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 px-5 py-4">
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
         {summary ? (
           <div className="space-y-2">
@@ -83,7 +86,7 @@ export function NoteAiPanel({ noteId, hasUnsavedChanges }: NoteAiPanelProps) {
             ) : loading ? (
               <p className="text-xs text-muted-foreground">流式输出中…</p>
             ) : null}
-            <pre className="whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed">
+            <pre className="whitespace-pre-wrap rounded-xl border border-border/70 bg-[linear-gradient(180deg,oklch(0.99_0.005_95),oklch(0.96_0.015_200/_0.5))] p-3 text-sm leading-relaxed">
               {summary}
               {loading ? <span className="animate-pulse">▍</span> : null}
             </pre>
