@@ -28,11 +28,11 @@ export class NotesService {
     });
   }
 
-  findAll(userId: number, query: ListNotesQueryDto) {
+  async findAll(userId: number, query: ListNotesQueryDto) {
     const isArchived = query.isArchived ?? false;
     const q = query.q?.trim();
 
-    return this.prisma.note.findMany({
+    const notes = await this.prisma.note.findMany({
       where: {
         userId,
         isArchived,
@@ -42,14 +42,39 @@ export class NotesService {
         ...(q
           ? {
               OR: [
-                { title: { contains: q } },
-                { content: { contains: q } },
+                { title: { contains: q, mode: 'insensitive' } },
+                { content: { contains: q, mode: 'insensitive' } },
               ],
             }
           : {}),
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [{ isFavorite: 'desc' }, { updatedAt: 'desc' }],
     });
+
+    if (!q) {
+      return notes.map(({ content, ...rest }) => ({
+        ...rest,
+        content: '',
+        snippet: this.makePreview(content),
+      }));
+    }
+
+    const needle = q.toLowerCase();
+    // 搜索相关度：标题命中 > 仅正文命中；同档再按收藏/更新时间
+    const ranked = [...notes].sort((a, b) => {
+      const aTitle = a.title.toLowerCase().includes(needle) ? 1 : 0;
+      const bTitle = b.title.toLowerCase().includes(needle) ? 1 : 0;
+      if (aTitle !== bTitle) return bTitle - aTitle;
+      if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+      return b.updatedAt.getTime() - a.updatedAt.getTime();
+    });
+
+    return ranked.map((note) => ({
+      ...note,
+      content: '',
+      snippet:
+        this.makeSnippet(note.content, q) ?? this.makePreview(note.content),
+    }));
   }
 
   async findOne(userId: number, id: number) {
@@ -88,12 +113,8 @@ export class NotesService {
       data: {
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
         ...(dto.content !== undefined ? { content: dto.content } : {}),
-        ...(dto.isFavorite !== undefined
-          ? { isFavorite: dto.isFavorite }
-          : {}),
-        ...(dto.isArchived !== undefined
-          ? { isArchived: dto.isArchived }
-          : {}),
+        ...(dto.isFavorite !== undefined ? { isFavorite: dto.isFavorite } : {}),
+        ...(dto.isArchived !== undefined ? { isArchived: dto.isArchived } : {}),
       },
     });
   }
@@ -119,15 +140,27 @@ export class NotesService {
     });
   }
 
-  async summarize(userId: number, id: number) {
-    const note = await this.prisma.note.findUnique({ where: { id } });
-    if (!note) {
-      throw new NotFoundException('Note not found');
-    }
-    if (note.userId !== userId) {
-      throw new ForbiddenException('No access to this note');
-    }
+  private makePreview(content: string, max = 100) {
+    const text = content.replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    return text.length > max ? `${text.slice(0, max)}…` : text;
+  }
 
+  private makeSnippet(content: string, q: string, radius = 48) {
+    const text = content.replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    const lower = text.toLowerCase();
+    const needle = q.toLowerCase();
+    const idx = lower.indexOf(needle);
+    if (idx < 0) return null;
+    const start = Math.max(0, idx - radius);
+    const end = Math.min(text.length, idx + needle.length + radius);
+    const slice = text.slice(start, end);
+    return `${start > 0 ? '…' : ''}${slice}${end < text.length ? '…' : ''}`;
+  }
+
+  async summarize(userId: number, id: number) {
+    const note = await this.getOwnedNote(userId, id);
     const result = await this.aiService.summarizeNote({
       userId,
       title: note.title,
@@ -139,5 +172,33 @@ export class NotesService {
       title: note.title,
       ...result,
     };
+  }
+
+  async *summarizeStream(userId: number, id: number) {
+    const note = await this.getOwnedNote(userId, id);
+    yield {
+      type: 'meta' as const,
+      noteId: note.id,
+      title: note.title,
+    };
+
+    for await (const event of this.aiService.summarizeNoteStream({
+      userId,
+      title: note.title,
+      content: note.content,
+    })) {
+      yield event;
+    }
+  }
+
+  private async getOwnedNote(userId: number, id: number) {
+    const note = await this.prisma.note.findUnique({ where: { id } });
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+    if (note.userId !== userId) {
+      throw new ForbiddenException('No access to this note');
+    }
+    return note;
   }
 }

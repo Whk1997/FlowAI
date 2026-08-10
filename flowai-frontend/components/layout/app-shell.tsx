@@ -10,6 +10,7 @@ const links = [
   { href: '/dashboard', label: '仪表盘' },
   { href: '/tasks', label: '任务' },
   { href: '/notes', label: '笔记' },
+  { href: '/settings', label: '设置' },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

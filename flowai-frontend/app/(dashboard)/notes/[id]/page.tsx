@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { Archive, Star } from 'lucide-react';
 import { ApiError } from '@/lib/api';
 import {
   deleteNote,
@@ -16,6 +17,7 @@ import { NoteFilesPanel } from '@/components/notes/note-files-panel';
 import { NoteAiPanel } from '@/components/notes/note-ai-panel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 export default function NoteDetailPage() {
   const params = useParams<{ id: string }>();
@@ -152,9 +154,16 @@ export default function NoteDetailPage() {
             <span className="text-xs text-muted-foreground">未保存</span>
           ) : null}
           <Button size="sm" variant="outline" onClick={() => void toggleFavorite()}>
+            <Star
+              className={cn(
+                'size-3.5',
+                note.isFavorite && 'fill-amber-400 text-amber-500',
+              )}
+            />
             {note.isFavorite ? '取消收藏' : '收藏'}
           </Button>
           <Button size="sm" variant="outline" onClick={() => void toggleArchive()}>
+            <Archive className="size-3.5" />
             {note.isArchived ? '取消归档' : '归档'}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void onDelete()}>

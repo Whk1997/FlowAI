@@ -2,9 +2,17 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState, useTransition } from 'react';
+import { Archive, Star } from 'lucide-react';
 import { ApiError } from '@/lib/api';
-import { createNote, deleteNote, listNotes, type Note } from '@/lib/notes';
+import {
+  createNote,
+  deleteNote,
+  listNotes,
+  updateNote,
+  type Note,
+} from '@/lib/notes';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,16 +22,63 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+
+function HighlightText({
+  text,
+  query,
+}: {
+  text: string;
+  query: string;
+}) {
+  const parts = useMemo(() => {
+    if (!query.trim()) return [text];
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.split(new RegExp(`(${escaped})`, 'ig'));
+  }, [text, query]);
+
+  if (!query.trim()) return <>{text}</>;
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark
+            key={`${part}-${index}`}
+            className="rounded-sm bg-amber-200/80 px-0.5 text-foreground"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={`${part}-${index}`}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 export default function NotesPage() {
   const router = useRouter();
   const [notes, setNotes] = useState<Note[]>([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [, startTransition] = useTransition();
+
+  // 输入防抖：停 350ms 后自动搜索，也可点「搜索」立即提交
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      startTransition(() => {
+        setSearch(query.trim());
+      });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +89,7 @@ export default function NotesPage() {
       try {
         const data = await listNotes({
           isArchived: showArchived,
+          isFavorite: favoritesOnly ? true : undefined,
           q: search || undefined,
         });
         if (!cancelled) setNotes(data);
@@ -50,7 +106,7 @@ export default function NotesPage() {
     return () => {
       cancelled = true;
     };
-  }, [showArchived, search]);
+  }, [showArchived, favoritesOnly, search]);
 
   function onSearch(e: FormEvent) {
     e.preventDefault();
@@ -71,6 +127,60 @@ export default function NotesPage() {
     }
   }
 
+  async function toggleFavorite(note: Note) {
+    setBusyId(note.id);
+    try {
+      const updated = await updateNote(note.id, {
+        isFavorite: !note.isFavorite,
+      });
+      setNotes((prev) => {
+        const next = prev.map((item) =>
+          item.id === updated.id
+            ? { ...item, ...updated, snippet: item.snippet }
+            : item,
+        );
+        if (favoritesOnly && !updated.isFavorite) {
+          return next.filter((item) => item.id !== updated.id);
+        }
+        return next.sort((a, b) => {
+          if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+          return (
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+        });
+      });
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : '操作失败');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function toggleArchive(note: Note) {
+    setBusyId(note.id);
+    try {
+      const updated = await updateNote(note.id, {
+        isArchived: !note.isArchived,
+      });
+      // 归档状态与当前列表视图不一致时，移出列表
+      if (updated.isArchived !== showArchived) {
+        setNotes((prev) => prev.filter((item) => item.id !== updated.id));
+      } else {
+        setNotes((prev) =>
+          prev.map((item) =>
+            item.id === updated.id
+              ? { ...item, ...updated, snippet: item.snippet }
+              : item,
+          ),
+        );
+      }
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : '操作失败');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function onDelete(note: Note) {
     if (!confirm(`删除笔记「${note.title}」？`)) return;
     try {
@@ -87,15 +197,24 @@ export default function NotesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">笔记</h1>
           <p className="text-sm text-muted-foreground">
-            Markdown 编辑与预览
+            收藏 / 归档可在列表直接操作；支持标题与正文搜索
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={favoritesOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFavoritesOnly((v) => !v)}
+          >
+            <Star className="size-3.5" />
+            {favoritesOnly ? '全部笔记' : '只看收藏'}
+          </Button>
           <Button
             variant={showArchived ? 'default' : 'outline'}
             size="sm"
             onClick={() => setShowArchived((v) => !v)}
           >
+            <Archive className="size-3.5" />
             {showArchived ? '查看未归档' : '查看归档'}
           </Button>
           <Button size="sm" onClick={() => void onCreate()} disabled={creating}>
@@ -104,7 +223,7 @@ export default function NotesPage() {
         </div>
       </div>
 
-      <form onSubmit={onSearch} className="flex gap-2">
+      <form onSubmit={onSearch} className="flex flex-wrap gap-2">
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -129,6 +248,14 @@ export default function NotesPage() {
         ) : null}
       </form>
 
+      {search || favoritesOnly || showArchived ? (
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          {search ? <Badge variant="secondary">关键词：{search}</Badge> : null}
+          {favoritesOnly ? <Badge variant="secondary">仅收藏</Badge> : null}
+          {showArchived ? <Badge variant="secondary">归档</Badge> : null}
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-muted-foreground">加载中…</p>
       ) : error ? (
@@ -140,9 +267,11 @@ export default function NotesPage() {
             <CardDescription>
               {search
                 ? '没有匹配的结果'
-                : showArchived
-                  ? '归档为空'
-                  : '点击右上角新建第一篇笔记'}
+                : favoritesOnly
+                  ? '还没有收藏的笔记'
+                  : showArchived
+                    ? '归档为空'
+                    : '点击右上角新建第一篇笔记'}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -150,26 +279,65 @@ export default function NotesPage() {
         <div className="grid gap-3">
           {notes.map((note) => (
             <Card key={note.id} size="sm">
-              <CardContent className="flex items-center justify-between gap-4 py-4">
+              <CardContent className="flex items-start justify-between gap-3 py-4">
                 <Link href={`/notes/${note.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 className="truncate text-sm font-medium">{note.title}</h2>
+                    <h2 className="truncate text-sm font-medium">
+                      <HighlightText text={note.title} query={search} />
+                    </h2>
                     {note.isFavorite ? (
-                      <span className="text-xs text-muted-foreground">收藏</span>
+                      <Star className="size-3.5 fill-amber-400 text-amber-500" />
+                    ) : null}
+                    {note.isArchived ? (
+                      <Badge variant="outline">已归档</Badge>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    更新于{' '}
-                    {new Date(note.updatedAt).toLocaleString('zh-CN')}
+                  {note.snippet ? (
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      <HighlightText text={note.snippet} query={search} />
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    更新于 {new Date(note.updatedAt).toLocaleString('zh-CN')}
                   </p>
                 </Link>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => void onDelete(note)}
-                >
-                  删除
-                </Button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={busyId === note.id}
+                    title={note.isFavorite ? '取消收藏' : '收藏'}
+                    onClick={() => void toggleFavorite(note)}
+                  >
+                    <Star
+                      className={cn(
+                        'size-3.5',
+                        note.isFavorite && 'fill-amber-400 text-amber-500',
+                      )}
+                    />
+                  </Button>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={busyId === note.id}
+                    title={note.isArchived ? '取消归档' : '归档'}
+                    onClick={() => void toggleArchive(note)}
+                  >
+                    <Archive
+                      className={cn(
+                        'size-3.5',
+                        note.isArchived && 'text-foreground',
+                      )}
+                    />
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => void onDelete(note)}
+                  >
+                    删除
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

@@ -1,5 +1,6 @@
 'use client';
 
+import { MessageSquare } from 'lucide-react';
 import { ApiError } from '@/lib/api';
 import {
   deleteTask,
@@ -7,13 +8,14 @@ import {
   type Task,
   type TaskStatus,
 } from '@/lib/tasks';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-const columns: { status: TaskStatus; title: string }[] = [
-  { status: 'TODO', title: '待办' },
-  { status: 'IN_PROGRESS', title: '进行中' },
-  { status: 'DONE', title: '已完成' },
+const columns: { status: TaskStatus; title: string; hint: string }[] = [
+  { status: 'TODO', title: '待办', hint: '还没开始' },
+  { status: 'IN_PROGRESS', title: '进行中', hint: '正在推进' },
+  { status: 'DONE', title: '已完成', hint: '可以归档' },
 ];
 
 const priorityLabel: Record<Task['priority'], string> = {
@@ -37,9 +39,10 @@ const prevStatus: Record<TaskStatus, TaskStatus | null> = {
 type TaskBoardProps = {
   tasks: Task[];
   onChange: (tasks: Task[]) => void;
+  onOpenTask: (task: Task) => void;
 };
 
-export function TaskBoard({ tasks, onChange }: TaskBoardProps) {
+export function TaskBoard({ tasks, onChange, onOpenTask }: TaskBoardProps) {
   async function setStatus(task: Task, status: TaskStatus) {
     try {
       const updated = await updateTask(task.id, { status });
@@ -60,58 +63,94 @@ export function TaskBoard({ tasks, onChange }: TaskBoardProps) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-3">
       {columns.map((column) => {
         const items = tasks.filter((task) => task.status === column.status);
         return (
           <section
             key={column.status}
-            className="rounded-xl border bg-background p-3"
+            className="flex min-h-72 flex-col rounded-2xl border bg-gradient-to-b from-background to-muted/30 p-3"
           >
-            <div className="mb-3 flex items-center justify-between px-1">
-              <h2 className="text-sm font-medium">{column.title}</h2>
-              <span className="text-xs text-muted-foreground">{items.length}</span>
+            <div className="mb-3 flex items-end justify-between px-1">
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">
+                  {column.title}
+                </h2>
+                <p className="text-[11px] text-muted-foreground">
+                  {column.hint}
+                </p>
+              </div>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">
+                {items.length}
+              </span>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-1 flex-col gap-3">
               {items.length === 0 ? (
-                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">
-                  暂无任务
+                <p className="rounded-xl border border-dashed bg-background/60 px-3 py-10 text-center text-xs text-muted-foreground">
+                  暂无任务 · 点卡片可写评论打标签
                 </p>
               ) : (
                 items.map((task) => (
                   <article
                     key={task.id}
-                    className="rounded-lg border bg-card p-3 shadow-none"
+                    className="group rounded-xl border bg-card p-3 shadow-sm transition hover:border-foreground/15 hover:shadow-md"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-medium leading-snug">
-                        {task.title}
-                      </h3>
-                      <span
-                        className={cn(
-                          'shrink-0 rounded-md px-1.5 py-0.5 text-[11px]',
-                          task.priority === 'HIGH' &&
-                            'bg-destructive/10 text-destructive',
-                          task.priority === 'MEDIUM' &&
-                            'bg-muted text-muted-foreground',
-                          task.priority === 'LOW' &&
-                            'bg-muted/60 text-muted-foreground',
-                        )}
-                      >
-                        {priorityLabel[task.priority]}
-                      </span>
-                    </div>
-                    {task.description ? (
-                      <p className="mt-2 line-clamp-3 text-xs text-muted-foreground">
-                        {task.description}
-                      </p>
-                    ) : null}
-                    {task.dueDate ? (
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        截止 {new Date(task.dueDate).toLocaleDateString('zh-CN')}
-                      </p>
-                    ) : null}
-                    <div className="mt-3 flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={() => onOpenTask(task)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="text-sm font-medium leading-snug group-hover:underline group-hover:underline-offset-2">
+                          {task.title}
+                        </h3>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-md px-1.5 py-0.5 text-[11px]',
+                            task.priority === 'HIGH' &&
+                              'bg-destructive/10 text-destructive',
+                            task.priority === 'MEDIUM' &&
+                              'bg-muted text-muted-foreground',
+                            task.priority === 'LOW' &&
+                              'bg-muted/60 text-muted-foreground',
+                          )}
+                        >
+                          {priorityLabel[task.priority]}
+                        </span>
+                      </div>
+                      {task.parentTaskId ? (
+                        <Badge variant="outline" className="mt-1.5">
+                          子任务 · #{task.parentTaskId}
+                        </Badge>
+                      ) : null}
+                      {task.description ? (
+                        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                          {task.description}
+                        </p>
+                      ) : null}
+                      {task.tags.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {task.tags.map((tag) => (
+                            <Badge key={tag.id} variant="secondary">
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+                        {task.dueDate ? (
+                          <span>
+                            截止{' '}
+                            {new Date(task.dueDate).toLocaleDateString('zh-CN')}
+                          </span>
+                        ) : null}
+                        <span className="inline-flex items-center gap-1">
+                          <MessageSquare className="size-3" />
+                          {task.commentCount}
+                        </span>
+                      </div>
+                    </button>
+                    <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3">
                       {prevStatus[task.status] ? (
                         <Button
                           size="xs"
@@ -143,6 +182,13 @@ export function TaskBoard({ tasks, onChange }: TaskBoardProps) {
                           重开
                         </Button>
                       )}
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => onOpenTask(task)}
+                      >
+                        详情
+                      </Button>
                       <Button
                         size="xs"
                         variant="ghost"

@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { createReadStream, existsSync } from 'fs';
@@ -21,12 +22,15 @@ import type { AuthUser } from '../common/decorators/current-user.decorator';
 import { MAX_FILE_SIZE_BYTES } from './files.constants';
 import { NotFoundException } from '@nestjs/common';
 
+@ApiTags('files')
+@ApiBearerAuth('access-token')
 @Controller()
 @UseGuards(JwtAuthGuard)
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
   @Post('notes/:noteId/files')
+  @ApiConsumes('multipart/form-data')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -82,10 +86,7 @@ export class FilesController {
   }
 
   @Delete('files/:id')
-  remove(
-    @CurrentUser() user: AuthUser,
-    @Param('id', ParseIntPipe) id: number,
-  ) {
+  remove(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.filesService.remove(user.userId, id);
   }
 }

@@ -27,7 +27,10 @@ export class StorageService {
 
     const supabaseUrl = this.config.get<string>('SUPABASE_URL');
     const supabaseKey = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY');
-    this.bucket = this.config.get<string>('SUPABASE_STORAGE_BUCKET', 'note-files');
+    this.bucket = this.config.get<string>(
+      'SUPABASE_STORAGE_BUCKET',
+      'note-files',
+    );
 
     if (supabaseUrl && supabaseKey) {
       this.supabase = createClient(supabaseUrl, supabaseKey);
@@ -46,7 +49,10 @@ export class StorageService {
     mimeType: string;
     buffer: Buffer;
   }): Promise<StoredObject> {
-    const safeName = params.originalName.replace(/[^\w.\-()\u4e00-\u9fff]+/g, '_');
+    const safeName = params.originalName.replace(
+      /[^\w.\-()\u4e00-\u9fff]+/g,
+      '_',
+    );
     const storagePath = `notes/${params.noteId}/${randomUUID()}-${safeName}`;
 
     if (this.supabase) {
@@ -76,7 +82,10 @@ export class StorageService {
 
     const absolutePath = join(this.uploadRoot, storagePath);
     mkdirSync(dirname(absolutePath), { recursive: true });
-    await pipeline(Readable.from(params.buffer), createWriteStream(absolutePath));
+    await pipeline(
+      Readable.from(params.buffer),
+      createWriteStream(absolutePath),
+    );
 
     return {
       storagePath,

@@ -10,6 +10,8 @@ export type Note = {
   isArchived: boolean;
   createdAt: string;
   updatedAt: string;
+  /** 列表接口返回的正文摘要（搜索时为命中片段） */
+  snippet?: string | null;
   files?: NoteFile[];
 };
 

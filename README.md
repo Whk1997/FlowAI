@@ -37,8 +37,10 @@ FlowAI/
 | 4 | 笔记附件上传/下载/删除 |
 | 5 | 笔记 AI 总结 |
 | 6 | 越权复查、CORS 加固、笔记搜索、演示账号、README |
+| 7 | 生产部署（Vercel + 自建/轻量服务器） |
+| Stretch | 个人资料/密码重置；任务标签与评论；笔记搜索增强；任务 AI 拆解与采纳；笔记 AI SSE；Swagger；GitHub Actions CI |
 
-**本版不做**：团队协作、实时通知、分享链接、密码重置、标签/评论（Stretch 可后续补）。
+**本版不做**：团队协作、实时通知、分享链接（其余 Stretch 可后续补）。
 
 ## 演示账号
 
@@ -68,6 +70,7 @@ npm run start:dev
 
 - API：`http://localhost:3001/api`
 - 健康检查：`GET /api/health`
+- Swagger：`http://localhost:3001/api/docs`（开发默认开启；生产需 `SWAGGER_ENABLED=true`）
 
 ### 2. 前端
 
@@ -83,9 +86,11 @@ npm run dev
 
 1. 用演示账号登录 → `/dashboard`
 2. `/tasks` 新建任务并改状态
-3. `/notes` 搜索 / 新建笔记 → 编辑保存
+3. `/notes` 搜索（防抖 + 高亮）/ 列表收藏与归档 / 新建笔记
 4. 笔记详情：上传附件 → 下载 / 删除
-5. 「生成总结」（需配置 AI 密钥；本机若走代理需 `AI_HTTP_PROXY`）
+5. 笔记「生成总结」（SSE 流式；需 AI 密钥；本机代理设 `AI_HTTP_PROXY`）
+6. 任务详情「生成拆解」→ 勾选 →「采纳并创建任务」
+7. `/settings` 改显示名 / 改密码；或登录页「忘记密码」走重置（未接邮箱时开发环境会返回重置链接；生产演示可设 `PASSWORD_RESET_RETURN_TOKEN=true`）
 
 ## 环境变量
 
@@ -106,8 +111,32 @@ npm run dev
 | `ANTHROPIC_MODEL` | 如 `gpt-5.4` |
 | `AI_HTTP_PROXY` | 本地代理，如 `http://127.0.0.1:7890`（Node 不走系统代理） |
 | `AI_DAILY_LIMIT` | 每用户每日 AI 次数，默认 `30` |
+| `SWAGGER_ENABLED` | `true` 强制开启文档；生产默认关，开发默认开 |
 
 未配置 Supabase 时，附件保存在后端 `uploads/`。
+
+## Swagger
+
+本地启动后端后打开 `/api/docs`。受保护接口点 **Authorize**，填入登录后的 Access Token（`Bearer` 前缀可不写，UI 会加）。
+
+## CI（GitHub Actions）
+
+推送到 `main` 或向 `main` 开 PR 时运行 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)：
+
+| Job | 内容 |
+|-----|------|
+| Backend | `npm ci` → `prisma generate` → `build` → `lint:ci` |
+| Frontend | `npm ci` → `typecheck` → `lint` → `build` |
+
+本地等价检查：
+
+```bash
+# 后端
+cd flowai-backend && npm ci && npx prisma generate && npm run build && npm run lint:ci
+
+# 前端
+cd flowai-frontend && npm ci && npm run typecheck && npm run lint && npm run build
+```
 
 ### 前端 `flowai-frontend/.env.local`
 

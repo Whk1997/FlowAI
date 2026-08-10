@@ -11,15 +11,18 @@ datasource db {
 // Supabase PostgreSQL：运行时可用 pooler(6543)，迁移走 DIRECT_URL(5432)
 
 model User {
-  id            Int            @id @default(autoincrement())
-  email         String         @unique
-  password      String
-  name          String?
-  refreshTokens RefreshToken[]
-  tasks         Task[]
-  notes         Note[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                  Int                  @id @default(autoincrement())
+  email               String               @unique
+  password            String
+  name                String?
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  tasks               Task[]
+  taskComments        TaskComment[]
+  tags                Tag[]
+  notes               Note[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 model RefreshToken {
@@ -32,6 +35,18 @@ model RefreshToken {
 
   @@index([userId])
   @@index([tokenHash])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 enum TaskStatus {
@@ -47,19 +62,61 @@ enum Priority {
 }
 
 model Task {
-  id          Int        @id @default(autoincrement())
-  title       String
-  description String?
-  status      TaskStatus @default(TODO)
-  priority    Priority   @default(MEDIUM)
-  dueDate     DateTime?
-  userId      Int
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id           Int           @id @default(autoincrement())
+  title        String
+  description  String?
+  status       TaskStatus    @default(TODO)
+  priority     Priority      @default(MEDIUM)
+  dueDate      DateTime?
+  userId       Int
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentTaskId Int?
+  parent       Task?         @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children     Task[]        @relation("TaskSubtasks")
+  tags         TaskTag[]
+  comments     TaskComment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([userId, status])
   @@index([userId, dueDate])
+  @@index([parentTaskId])
+}
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     TaskTag[]
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model TaskTag {
+  taskId Int
+  tagId  Int
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@index([tagId])
+}
+
+model TaskComment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  taskId    Int
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId, createdAt])
+  @@index([userId])
 }
 
 model Note {

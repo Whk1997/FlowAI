@@ -6,10 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
-import {
-  isAllowedMimeType,
-  MAX_FILE_SIZE_BYTES,
-} from './files.constants';
+import { isAllowedMimeType, MAX_FILE_SIZE_BYTES } from './files.constants';
 
 type UploadedFile = {
   originalname: string;
@@ -68,9 +65,7 @@ export class FilesService {
       throw new BadRequestException('File is required');
     }
     if (!isAllowedMimeType(file.mimetype)) {
-      throw new BadRequestException(
-        `Unsupported file type: ${file.mimetype}`,
-      );
+      throw new BadRequestException(`Unsupported file type: ${file.mimetype}`);
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
       throw new BadRequestException('File exceeds 10MB limit');

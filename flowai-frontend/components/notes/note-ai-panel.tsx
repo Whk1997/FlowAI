@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ApiError } from '@/lib/api';
-import { summarizeNote } from '@/lib/ai';
+import { summarizeNoteStream } from '@/lib/ai';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -23,15 +23,33 @@ export function NoteAiPanel({ noteId, hasUnsavedChanges }: NoteAiPanelProps) {
   const [summary, setSummary] = useState('');
   const [model, setModel] = useState('');
   const [error, setError] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
 
   async function onSummarize() {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     setError('');
+    setSummary('');
+    setModel('');
+
     try {
-      const result = await summarizeNote(noteId);
-      setSummary(result.summary);
-      setModel(result.model);
+      await summarizeNoteStream(noteId, {
+        signal: controller.signal,
+        onDelta: (text) => {
+          setSummary((prev) => prev + text);
+        },
+        onDone: (result) => {
+          setSummary(result.summary);
+          setModel(result.model);
+        },
+      });
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return;
+      }
       setError(err instanceof ApiError ? err.message : '总结失败');
     } finally {
       setLoading(false);
@@ -44,7 +62,7 @@ export function NoteAiPanel({ noteId, hasUnsavedChanges }: NoteAiPanelProps) {
         <div>
           <CardTitle>AI 总结</CardTitle>
           <CardDescription>
-            基于已保存正文生成概述与要点
+            基于已保存正文流式生成概述与要点
             {hasUnsavedChanges ? '（当前有未保存修改，请先保存）' : ''}
           </CardDescription>
         </div>
@@ -62,14 +80,17 @@ export function NoteAiPanel({ noteId, hasUnsavedChanges }: NoteAiPanelProps) {
           <div className="space-y-2">
             {model ? (
               <p className="text-xs text-muted-foreground">模型：{model}</p>
+            ) : loading ? (
+              <p className="text-xs text-muted-foreground">流式输出中…</p>
             ) : null}
             <pre className="whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed">
               {summary}
+              {loading ? <span className="animate-pulse">▍</span> : null}
             </pre>
           </div>
         ) : !error ? (
           <p className="text-sm text-muted-foreground">
-            点击「生成总结」获取 AI 摘要
+            点击「生成总结」获取 AI 摘要（SSE 流式）
           </p>
         ) : null}
       </CardContent>

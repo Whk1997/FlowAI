@@ -1,11 +1,17 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
-const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[420px] items-center justify-center rounded-xl border text-sm text-muted-foreground">
+      编辑器加载中…
+    </div>
+  ),
+});
 
 type NoteEditorProps = {
   value: string;
@@ -13,20 +19,6 @@ type NoteEditorProps = {
 };
 
 export function NoteEditor({ value, onChange }: NoteEditorProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="flex h-[420px] items-center justify-center rounded-xl border text-sm text-muted-foreground">
-        编辑器加载中…
-      </div>
-    );
-  }
-
   return (
     <div data-color-mode="light" className="overflow-hidden rounded-xl border">
       <MDEditor

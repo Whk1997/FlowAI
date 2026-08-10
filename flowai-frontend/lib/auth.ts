@@ -113,3 +113,68 @@ export async function fetchMe() {
     return apiFetch<User>('/auth/me', { accessToken: refreshed.accessToken });
   }
 }
+
+async function withAccessToken<T>(fn: (accessToken: string) => Promise<T>) {
+  let accessToken = getAccessToken();
+  if (!accessToken) {
+    const refreshed = await refreshSession();
+    accessToken = refreshed?.accessToken ?? null;
+  }
+  if (!accessToken) {
+    throw new Error('Not authenticated');
+  }
+
+  try {
+    return await fn(accessToken);
+  } catch (err) {
+    const refreshed = await refreshSession();
+    if (!refreshed) throw err;
+    return fn(refreshed.accessToken);
+  }
+}
+
+export async function updateProfile(input: { name: string }) {
+  return withAccessToken((accessToken) =>
+    apiFetch<User>('/auth/me', {
+      method: 'PATCH',
+      accessToken,
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  return withAccessToken((accessToken) =>
+    apiFetch<{ success: boolean }>('/auth/change-password', {
+      method: 'POST',
+      accessToken,
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export type ForgotPasswordResponse = {
+  message: string;
+  resetToken?: string;
+  resetPath?: string;
+};
+
+export async function forgotPassword(email: string) {
+  return apiFetch<ForgotPasswordResponse>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function resetPassword(input: {
+  token: string;
+  newPassword: string;
+}) {
+  return apiFetch<{ success: boolean }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}

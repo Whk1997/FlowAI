@@ -1,12 +1,16 @@
 import {
+  ArrayUnique,
+  IsArray,
   IsDateString,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Priority, TaskStatus } from '@prisma/client';
 
 export class UpdateTaskDto {
@@ -33,4 +37,11 @@ export class UpdateTaskDto {
   @ValidateIf((_, value) => value !== null)
   @IsDateString()
   dueDate?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  tagIds?: number[];
 }

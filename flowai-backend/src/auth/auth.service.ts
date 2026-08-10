@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -10,6 +12,10 @@ import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 type AuthTokens = {
   accessToken: string;
@@ -25,6 +31,8 @@ type PublicUser = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -102,7 +110,138 @@ export class AuthService {
     return this.toPublicUser(user);
   }
 
-  private async issueTokens(userId: number, email: string): Promise<AuthTokens> {
+  async updateProfile(userId: number, dto: UpdateProfileDto) {
+    const name = dto.name === undefined ? undefined : dto.name.trim() || null;
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(name !== undefined ? { name } : {}),
+      },
+    });
+    return this.toPublicUser(user);
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto) {
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('New password must be different');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const valid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!valid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const password = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { password },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+    ]);
+
+    return { success: true };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const generic = {
+      message:
+        'If an account exists for this email, a password reset token has been issued.',
+    };
+
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+    });
+    if (!user) {
+      return generic;
+    }
+
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id, usedAt: null },
+    });
+
+    const rawToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await this.prisma.passwordResetToken.create({
+      data: {
+        tokenHash: this.hashToken(rawToken),
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL')?.replace(/\/$/, '') ||
+      'http://localhost:3000';
+    const resetPath = `/reset-password?token=${rawToken}`;
+    this.logger.log(
+      `Password reset issued for user ${user.id}: ${frontendUrl}${resetPath}`,
+    );
+
+    if (!this.shouldReturnResetToken()) {
+      return generic;
+    }
+
+    return {
+      ...generic,
+      resetToken: rawToken,
+      resetPath,
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const tokenHash = this.hashToken(dto.token);
+    const stored = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!stored || stored.usedAt || stored.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    const password = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: stored.userId },
+        data: { password },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: stored.id },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.passwordResetToken.deleteMany({
+        where: {
+          userId: stored.userId,
+          usedAt: null,
+          id: { not: stored.id },
+        },
+      }),
+      this.prisma.refreshToken.deleteMany({
+        where: { userId: stored.userId },
+      }),
+    ]);
+
+    return { success: true };
+  }
+
+  private shouldReturnResetToken() {
+    const flag = this.config.get<string>('PASSWORD_RESET_RETURN_TOKEN');
+    if (flag === 'true') return true;
+    if (flag === 'false') return false;
+    return this.config.get<string>('NODE_ENV') !== 'production';
+  }
+
+  private async issueTokens(
+    userId: number,
+    email: string,
+  ): Promise<AuthTokens> {
     const accessExpires =
       this.config.get<string>('JWT_ACCESS_EXPIRES') ?? '15m';
     const accessToken = await this.jwtService.signAsync(

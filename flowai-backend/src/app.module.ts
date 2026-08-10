@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
+import { TagsModule } from './tags/tags.module';
 import { NotesModule } from './notes/notes.module';
 import { FilesModule } from './files/files.module';
 import { AiModule } from './ai/ai.module';
@@ -15,6 +16,7 @@ import { AppService } from './app.service';
     PrismaModule,
     AuthModule,
     TasksModule,
+    TagsModule,
     NotesModule,
     FilesModule,
     AiModule,

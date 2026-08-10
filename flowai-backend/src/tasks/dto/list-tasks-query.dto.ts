@@ -1,4 +1,5 @@
-import { IsEnum, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional } from 'class-validator';
 import { Priority, TaskStatus } from '@prisma/client';
 
 export class ListTasksQueryDto {
@@ -9,4 +10,9 @@ export class ListTasksQueryDto {
   @IsOptional()
   @IsEnum(Priority)
   priority?: Priority;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  tagId?: number;
 }

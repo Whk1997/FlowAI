@@ -3,9 +3,12 @@
 import { FormEvent, useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { createTask, type Priority, type Task } from '@/lib/tasks';
+import type { Tag } from '@/lib/tags';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Card,
   CardContent,
@@ -15,16 +18,26 @@ import {
 } from '@/components/ui/card';
 
 type TaskCreateFormProps = {
+  tags: Tag[];
   onCreated: (task: Task) => void;
 };
 
-export function TaskCreateForm({ onCreated }: TaskCreateFormProps) {
+export function TaskCreateForm({ tags, onCreated }: TaskCreateFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
+  const [tagIds, setTagIds] = useState<number[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  function toggleTag(tagId: number) {
+    setTagIds((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId],
+    );
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -36,12 +49,14 @@ export function TaskCreateForm({ onCreated }: TaskCreateFormProps) {
         description: description.trim() || undefined,
         priority,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+        tagIds,
       });
       onCreated(task);
       setTitle('');
       setDescription('');
       setPriority('MEDIUM');
       setDueDate('');
+      setTagIds([]);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '创建失败');
     } finally {
@@ -50,7 +65,7 @@ export function TaskCreateForm({ onCreated }: TaskCreateFormProps) {
   }
 
   return (
-    <Card>
+    <Card className="border-dashed">
       <CardHeader>
         <CardTitle>新建任务</CardTitle>
       </CardHeader>
@@ -63,17 +78,16 @@ export function TaskCreateForm({ onCreated }: TaskCreateFormProps) {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="例如：完成 Day2 看板"
+              placeholder="例如：完成任务标签与评论"
             />
           </div>
           <div className="flex flex-col gap-2 md:col-span-2">
             <Label htmlFor="description">描述</Label>
-            <textarea
+            <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="min-h-20 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               placeholder="可选"
             />
           </div>
@@ -99,6 +113,27 @@ export function TaskCreateForm({ onCreated }: TaskCreateFormProps) {
               onChange={(e) => setDueDate(e.target.value)}
             />
           </div>
+          {tags.length > 0 ? (
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <Label>标签（可选）</Label>
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => {
+                  const active = tagIds.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                    >
+                      <Badge variant={active ? 'default' : 'outline'}>
+                        {tag.name}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           {error ? (
             <p className="text-sm text-destructive md:col-span-2">{error}</p>
           ) : null}
