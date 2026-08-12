@@ -11,18 +11,17 @@ datasource db {
 // Supabase PostgreSQL：运行时可用 pooler(6543)，迁移走 DIRECT_URL(5432)
 
 model User {
-  id                  Int                  @id @default(autoincrement())
-  email               String               @unique
-  password            String
-  name                String?
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
-  tasks               Task[]
-  taskComments        TaskComment[]
-  tags                Tag[]
-  notes               Note[]
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+  name          String?
+  refreshTokens RefreshToken[]
+  tasks         Task[]
+  taskComments  TaskComment[]
+  tags          Tag[]
+  notes         Note[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 }
 
 model RefreshToken {
@@ -35,18 +34,6 @@ model RefreshToken {
 
   @@index([userId])
   @@index([tokenHash])
-}
-
-model PasswordResetToken {
-  id        Int      @id @default(autoincrement())
-  tokenHash String   @unique
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-
-  @@index([userId])
 }
 
 enum TaskStatus {

@@ -1,15 +1,18 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
+import { RedisService } from '../redis/redis.service';
 
 type RateBucket = {
   count: number;
-  resetAt: number;
+  /** UTC 日历日 YYYY-MM-DD，与 Redis key 对齐 */
+  day: string;
 };
 
 export type TaskBreakdownSuggestion = {
@@ -19,12 +22,17 @@ export type TaskBreakdownSuggestion = {
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
   private readonly client: OpenAI | null;
   private readonly model: string;
   private readonly dailyLimit: number;
-  private readonly rateBuckets = new Map<number, RateBucket>();
+  /** REDIS_URL 未配置或 Redis 暂不可用时的进程内回退 */
+  private readonly memoryBuckets = new Map<number, RateBucket>();
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly redis: RedisService,
+  ) {
     const apiKey =
       this.config.get<string>('ANTHROPIC_API_KEY')?.trim() ||
       this.config.get<string>('OPENAI_API_KEY')?.trim();
@@ -81,23 +89,85 @@ export class AiService {
     return this.client;
   }
 
-  private assertRateLimit(userId: number) {
-    const now = Date.now();
-    const dayMs = 24 * 60 * 60 * 1000;
-    const bucket = this.rateBuckets.get(userId);
+  private utcDayKey(date = new Date()) {
+    return date.toISOString().slice(0, 10);
+  }
 
-    if (!bucket || bucket.resetAt <= now) {
-      this.rateBuckets.set(userId, { count: 0, resetAt: now + dayMs });
-      return this.rateBuckets.get(userId)!;
+  private rateLimitKey(userId: number, day = this.utcDayKey()) {
+    return `flowai:ai:daily:${userId}:${day}`;
+  }
+
+  /** 距离下一个 UTC 零点的秒数（至少 60s，便于 EXPIRE） */
+  private secondsUntilNextUtcMidnight(now = new Date()) {
+    const next = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+    );
+    return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
+  }
+
+  private async assertUnderDailyLimit(userId: number) {
+    const day = this.utcDayKey();
+
+    if (this.redis.isConfigured()) {
+      try {
+        const raw = await this.redis.get(this.rateLimitKey(userId, day));
+        const count = raw ? Number(raw) : 0;
+        if (Number.isFinite(count) && count >= this.dailyLimit) {
+          throw new BadRequestException(
+            `AI daily limit reached (${this.dailyLimit}/day)`,
+          );
+        }
+        return;
+      } catch (error) {
+        if (error instanceof BadRequestException) throw error;
+        this.logger.warn(
+          `Redis rate check failed, falling back to memory: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
+    const bucket = this.memoryBuckets.get(userId);
+    if (!bucket || bucket.day !== day) {
+      this.memoryBuckets.set(userId, { count: 0, day });
+      return;
+    }
     if (bucket.count >= this.dailyLimit) {
       throw new BadRequestException(
         `AI daily limit reached (${this.dailyLimit}/day)`,
       );
     }
+  }
 
-    return bucket;
+  private async recordDailyUsage(userId: number) {
+    const day = this.utcDayKey();
+
+    if (this.redis.isConfigured()) {
+      try {
+        const key = this.rateLimitKey(userId, day);
+        const count = await this.redis.incr(key);
+        if (count === 1) {
+          await this.redis.expire(key, this.secondsUntilNextUtcMidnight());
+        }
+        return;
+      } catch (error) {
+        this.logger.warn(
+          `Redis rate record failed, falling back to memory: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    const bucket = this.memoryBuckets.get(userId);
+    if (!bucket || bucket.day !== day) {
+      this.memoryBuckets.set(userId, { count: 1, day });
+      return;
+    }
+    bucket.count += 1;
   }
 
   async summarizeNote(params: {
@@ -111,7 +181,7 @@ export class AiService {
       throw new BadRequestException('Note content is empty');
     }
 
-    const bucket = this.assertRateLimit(params.userId);
+    await this.assertUnderDailyLimit(params.userId);
     const truncated = this.truncate(content, 12000);
 
     try {
@@ -128,7 +198,7 @@ export class AiService {
         );
       }
 
-      bucket.count += 1;
+      await this.recordDailyUsage(params.userId);
 
       return {
         summary,
@@ -163,7 +233,7 @@ export class AiService {
       throw new BadRequestException('Note content is empty');
     }
 
-    const bucket = this.assertRateLimit(params.userId);
+    await this.assertUnderDailyLimit(params.userId);
     const truncated = this.truncate(content, 12000);
 
     try {
@@ -190,7 +260,7 @@ export class AiService {
         );
       }
 
-      bucket.count += 1;
+      await this.recordDailyUsage(params.userId);
       yield {
         type: 'done',
         summary: summary.trim(),
@@ -208,7 +278,7 @@ export class AiService {
     description: string | null;
   }) {
     const client = this.assertConfigured();
-    const bucket = this.assertRateLimit(params.userId);
+    await this.assertUnderDailyLimit(params.userId);
     const description = (params.description ?? '').trim();
 
     try {
@@ -236,7 +306,7 @@ export class AiService {
         );
       }
 
-      bucket.count += 1;
+      await this.recordDailyUsage(params.userId);
 
       return {
         suggestions,

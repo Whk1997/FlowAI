@@ -1,4 +1,14 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: flowai-redis
+    restart: unless-stopped
+    # 轻量机限制内存，仅用于 AI 日限额计数
+    command: redis-server --maxmemory 32mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    expose:
+      - "6379"
+    mem_limit: 48m
+
   api:
     image: flowai-api:latest
     container_name: flowai-api
@@ -8,10 +18,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3001"
+      REDIS_URL: redis://redis:6379
     expose:
       - "3001"
+    depends_on:
+      - redis
     # 0.5G 机器：限制容器内存，避免把系统拖死
-    mem_limit: 384m
+    # mem_limit: 320m
 
   caddy:
     image: caddy:2-alpine

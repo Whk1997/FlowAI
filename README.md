@@ -110,7 +110,8 @@ npm run dev
 | `ANTHROPIC_BASE_URL` | 如 `https://apinebula.com/v1` |
 | `ANTHROPIC_MODEL` | 如 `gpt-5.4` |
 | `AI_HTTP_PROXY` | 本地代理，如 `http://127.0.0.1:7890`（Node 不走系统代理） |
-| `AI_DAILY_LIMIT` | 每用户每日 AI 次数，默认 `30` |
+| `AI_DAILY_LIMIT` | 每用户每日 AI 次数，默认 `30`（UTC 自然日） |
+| `REDIS_URL` | 可选；如 `redis://127.0.0.1:6379`。用于 AI 日限额、密码重置令牌，以及 Refresh Token 热缓存（Postgres 仍为真源）；未配置则回退 |
 | `SWAGGER_ENABLED` | `true` 强制开启文档；生产默认关，开发默认开 |
 
 未配置 Supabase 时，附件保存在后端 `uploads/`。
@@ -183,6 +184,7 @@ cd flowai-frontend && npm ci && npm run typecheck && npm run lint && npm run bui
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_STORAGE_BUCKET` | 建议必配 |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | AI |
 | `AI_DAILY_LIMIT` | `30` |
+| `REDIS_URL` | 可选；AI 日限额与密码重置令牌 |
 
 改变量后若未自动重启，在控制台 Restart 一次。
 
